@@ -1,5 +1,6 @@
 // Interface do juiz: enunciado à esquerda, editor à direita, javac e testes rodando no navegador com o CheerpJ
 import { instrument } from "./instrument.js";
+import { initBoard } from "./board.js";
 
 const TIMEOUT_MS = 5000;
 const SEP = "\u0000JUIZ\u0000";
@@ -304,6 +305,29 @@ document.addEventListener("keydown", e => {
 const zoom = $("zoom");
 zoom.onclick = () => zoom.style.display = "none";
 
+// Abas Enunciado e Quadro na barra lateral, só nos exercícios com quadro visual
+function setupBoard() {
+  const board = initBoard({
+    root: $("board"), exerciseId: EX.id, visualFiles: EX.visual,
+    getFiles: () => { FILES[current] = editor.getValue(); return { ...FILES }; },
+    compile, serial, boot, compileErrorHtml: res => compileError(res),
+  });
+  $("view-tabs").hidden = false;
+  const show = view => {
+    document.body.classList.toggle("board-mode", view === "board");
+    $("statement").hidden = view === "board";
+    $("board").hidden = view !== "board";
+    document.querySelectorAll("#view-tabs button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
+    try { localStorage.setItem("poo-juiz-view:" + EX.id, view); } catch { }
+    if (view === "board") board.shown();
+    editor.refresh();
+  };
+  document.querySelectorAll("#view-tabs button").forEach(b => b.onclick = () => show(b.dataset.view));
+  let last = null;
+  try { last = localStorage.getItem("poo-juiz-view:" + EX.id); } catch { }
+  show(last === "board" ? "board" : "statement");
+}
+
 async function init() {
   const index = await fetch("data/index.json").then(r => r.json());
   const wanted = new URLSearchParams(location.search).get("ex");
@@ -322,6 +346,7 @@ async function init() {
   editor.clearHistory();
   renderTabs();
   saved.textContent = mine ? "salvo neste navegador" : "";
+  if (Object.keys(EX.visual || {}).length) setupBoard();
   // Os botões só funcionam depois que o exercício carregou
   document.querySelectorAll(".actions button.go").forEach(b => b.disabled = false);
 }

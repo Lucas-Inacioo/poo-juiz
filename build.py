@@ -53,6 +53,7 @@ def main():
             "input": example.read_text() if example.exists() else (tests[0]["input"] if tests else ""),
             "tests": tests,
             "checker": checker,
+            "visual": java_files(folder / "visual"),
         }
         (OUT / ex / "exercise.json").write_text(json.dumps(data, ensure_ascii=False))
         index.append({"id": ex, "label": label(ex)})

@@ -4,7 +4,7 @@ Site para resolver os exercícios de Programação Orientada a Objetos em Java e
 
 O site fica em https://lucas-inacioo.github.io/poo-juiz/
 
-O enunciado fica à esquerda e o editor fica à direita. O botão Executar roda o programa com a entrada da caixa. O botão Enviar roda o programa contra todos os testes do exercício e mostra, para cada teste, a entrada, a saída esperada e a sua saída. No exercício do dojo, o Enviar roda um verificador que confere o comportamento das classes.
+O enunciado fica à esquerda e o editor fica à direita. O botão Executar roda o programa com a entrada da caixa. O botão Enviar roda o programa contra todos os testes do exercício e mostra, para cada teste, a entrada, a saída esperada e a sua saída. No exercício do dojo, o Enviar roda um verificador que confere o comportamento das classes, e a aba Quadro mostra um quadro Kanban que funciona com as classes do aluno. Criar, editar, arrastar e apagar cartões chamam os métodos que o aluno escreveu, e as exceções que o código lança aparecem como aviso.
 
 O Java roda dentro do navegador com o [CheerpJ](https://cheerpj.com), que traz o OpenJDK 17 e o javac de verdade. Nenhum código é enviado para um servidor. Na primeira visita o Java demora alguns segundos para carregar. O código de cada exercício fica salvo no navegador de quem está usando.
 
@@ -13,7 +13,8 @@ O Java roda dentro do navegador com o [CheerpJ](https://cheerpj.com), que traz o
 - `index.html` e `app.js` são a página e o editor, com CodeMirror.
 - `runner/JuizRunner.java` prepara os arquivos, roda o main uma vez por teste com as classes recarregadas, troca o System.in pela entrada do teste e captura a saída. A pasta `runner/classes` tem esse arquivo já compilado.
 - `instrument.js` coloca uma chamada a juiz.Guard.tick() no começo de cada while, for e do antes de compilar, sem mudar o número das linhas. O CheerpJ não interrompe um laço infinito sozinho, então é essa chamada que encerra o teste depois de 5 segundos.
-- `data/` tem os exercícios. Ela é gerada pelo `build.py` a partir das pastas de exercícios do editor local, cada uma com base, statement.html, example.in, tests e, no dojo, checker.
+- `board.js` desenha o quadro. Ele compila o código do aluno junto com juiz/Ponte.java, que fica na pasta visual do exercício e só usa os métodos do diagrama, e chama a ponte pelo modo de biblioteca do CheerpJ. As ações aceitas ficam guardadas e são refeitas sobre o código novo a cada carga.
+- `data/` tem os exercícios. Ela é gerada pelo `build.py` a partir das pastas de exercícios do editor local, cada uma com base, statement.html, example.in, tests e, no dojo, checker e visual.
 
 ## Atualizar
 

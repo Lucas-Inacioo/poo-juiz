@@ -120,6 +120,12 @@ public class JuizRunner {
         }
     }
 
+    /** Carrega as classes compiladas num carregador novo e devolve um objeto juiz.Ponte para o quadro visual. */
+    public static Object abrirPonte(String outDir, int limite) throws Exception {
+        URLClassLoader loader = new URLClassLoader(new URL[] {new File(outDir).toURI().toURL()}, ClassLoader.getPlatformClassLoader());
+        return loader.loadClass("juiz.Ponte").getConstructor(int.class).newInstance(limite);
+    }
+
     static String runOne(URL classes, String mainClass, long limit) throws Exception {
         // Carregador novo por teste, para os atributos static do aluno voltarem ao valor inicial
         URLClassLoader loader = new URLClassLoader(new URL[] {classes}, ClassLoader.getPlatformClassLoader());
