@@ -8,6 +8,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).parent
 SRC = Path(sys.argv[1]) if len(sys.argv) > 1 else Path.home() / "poo-editor" / "exercises"
+# Exercícios que entram no site. Sem nenhum na linha de comando, entra só o dojo
+ONLY = sys.argv[2:] or ["dojo-kanban"]
 OUT = ROOT / "data"
 LABELS = {"heranca": "Herança", "polimorfismo": "Polimorfismo", "interface": "Interface", "excecoes": "Exceções", "dojo": "Dojo"}
 ASSETS = {".png", ".svg", ".jpg"}
@@ -34,7 +36,7 @@ def tests_of(folder):
 def main():
     shutil.rmtree(OUT, ignore_errors=True)
     OUT.mkdir()
-    exercises = sorted((p.name for p in SRC.iterdir() if p.is_dir()), key=lambda e: (list(LABELS).index(e.split("-")[0]), e))
+    exercises = sorted((p.name for p in SRC.iterdir() if p.is_dir() and p.name in ONLY), key=lambda e: (list(LABELS).index(e.split("-")[0]), e))
     index = []
     for ex in exercises:
         folder = SRC / ex

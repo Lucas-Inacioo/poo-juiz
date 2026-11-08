@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Juiz POO</title>
+<title>Dojo Kanban</title>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/fold/foldgutter.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
@@ -35,6 +35,26 @@
   .bar { display: flex; align-items: center; gap: 4px; padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); overflow-x: auto; }
   .bar .file { font-family: monospace; font-size: 13px; padding: 4px 10px; border-radius: 6px; border: 1px solid transparent; cursor: pointer; white-space: nowrap; }
   .bar .file.on { border-color: var(--line); background: var(--code); font-weight: 600; }
+  .ide { flex: 1; display: flex; min-height: 0; border-bottom: 1px solid var(--line); }
+  .explorer { width: 230px; flex-shrink: 0; overflow: auto; background: var(--panel); border-right: 1px solid var(--line); font-size: 13px; }
+  .explorer-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--line); }
+  .explorer-head button { font-size: 12px; padding: 2px 8px; text-transform: none; letter-spacing: 0; }
+  .tree { padding: 4px 0 12px; }
+  .tree .row { display: flex; align-items: center; gap: 4px; padding: 3px 8px; cursor: pointer; white-space: nowrap; user-select: none; }
+  .tree .row:hover { background: var(--code); }
+  .tree .row.on { background: #e2efe7; font-weight: 600; }
+  .tree .row .twisty { width: 12px; color: var(--muted); font-size: 10px; text-align: center; }
+  .tree .row .icon { width: 16px; display: flex; align-items: center; justify-content: center; }
+  .tree .row .name { overflow: hidden; text-overflow: ellipsis; }
+  .tree .row.open .name::after { content: " ●"; color: var(--accent); font-size: 9px; vertical-align: middle; }
+  .tree .row .act { margin-left: auto; visibility: hidden; border: 0; background: none; padding: 0 4px; color: var(--muted); font-size: 14px; line-height: 1; }
+  .tree .row:hover .act { visibility: visible; }
+  .tree .row .act:hover { color: var(--accent); }
+  .tree .row .act.del:hover { color: var(--bad); }
+  .editor-col { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .editor-col.empty .CodeMirror { display: none; }
+  .no-file { display: none; flex: 1; align-items: center; justify-content: center; color: var(--muted); font-size: 14px; }
+  .editor-col.empty .no-file { display: flex; }
   .bar .file .x { margin-left: 6px; color: var(--muted); }
   .bar .file .x:hover { color: var(--bad); }
   .bar .add { font-size: 13px; padding: 2px 10px; }
@@ -42,7 +62,7 @@
   .status::before { content: "●"; margin-right: 4px; color: #c69200; }
   .status.ok::before { color: var(--accent); }
   .status.bad::before { color: var(--bad); }
-  .CodeMirror { flex: 1; height: auto; font-size: 14px; border-bottom: 1px solid var(--line); }
+  .CodeMirror { flex: 1; height: auto; font-size: 14px; }
   .CodeMirror-foldmarker { background: var(--code); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--muted); text-shadow: none; font-family: monospace; }
   .bottom { height: 38%; display: flex; flex-direction: column; background: var(--panel); }
   .actions { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
@@ -114,18 +134,27 @@
 <body>
 <aside>
   <nav class="tabs" id="tabs"></nav>
-  <nav id="view-tabs" class="view-tabs" hidden><button data-view="statement">Enunciado</button><button data-view="board">Quadro</button></nav>
+  <nav id="view-tabs" class="view-tabs" hidden><button data-view="statement">Diagrama</button><button data-view="board">Quadro</button></nav>
   <div id="statement">Carregando...</div>
   <div id="board" class="board" hidden></div>
   <footer>Java no navegador com <a href="https://cheerpj.com">CheerpJ</a>. Código do juiz em <a href="https://github.com/Lucas-Inacioo/poo-juiz">github.com/Lucas-Inacioo/poo-juiz</a>.</footer>
 </aside>
 
 <main>
-  <div class="bar">
-    <span id="files"></span><button class="add" id="add" title="Criar arquivo">+ arquivo</button>
-    <span class="right"><span id="saved"></span><span class="status" id="status">carregando o Java...</span></span>
+  <div class="ide">
+    <nav class="explorer" aria-label="Arquivos do projeto">
+      <div class="explorer-head"><span>Projeto</span><button id="add" title="Criar arquivo">+ arquivo</button></div>
+      <div id="tree" class="tree"></div>
+    </nav>
+    <div class="editor-col" id="editor-col">
+      <div class="bar">
+        <span id="files"></span>
+        <span class="right"><span id="saved"></span><span class="status" id="status">carregando o Java...</span></span>
+      </div>
+      <div class="no-file" id="no-file">Nenhum arquivo aberto. Escolha um na lista do projeto.</div>
+      <textarea id="code"></textarea>
+    </div>
   </div>
-  <textarea id="code"></textarea>
   <div class="bottom">
     <div class="actions">
       <button id="run" class="go" disabled>Executar com a entrada</button>

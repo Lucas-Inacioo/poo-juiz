@@ -144,30 +144,90 @@ foldBtn.onclick = () => {
   applyFolds();
 };
 
+// Abas do editor: só os arquivos abertos, e o × fecha a aba sem apagar o arquivo
+let OPEN = [];
+const collapsed = new Set();
+function syncCurrent() { if (current && current in FILES) FILES[current] = editor.getValue(); }
+function persistOpen() { store.set("poo-juiz-open:" + EX.id, { open: OPEN, current }); }
+
 function renderTabs() {
   filesBar.innerHTML = "";
-  for (const name of Object.keys(FILES)) {
+  for (const name of OPEN) {
     const b = document.createElement("span");
     b.className = "file" + (name === current ? " on" : "");
-    b.textContent = name;
+    b.textContent = name.split("/").pop();
+    b.title = name;
     b.onclick = () => switchTo(name);
-    if (!(name in EX.files)) {
-      const x = document.createElement("span");
-      x.className = "x"; x.textContent = "×"; x.title = "Apagar arquivo";
-      x.onclick = e => { e.stopPropagation(); removeFile(name); };
-      b.appendChild(x);
-    }
+    const x = document.createElement("span");
+    x.className = "x"; x.textContent = "×"; x.title = "Fechar aba";
+    x.onclick = e => { e.stopPropagation(); closeTab(name); };
+    b.appendChild(x);
     filesBar.appendChild(b);
   }
+  $("editor-col").classList.toggle("empty", !current);
+  renderTree();
 }
+
+// Ícones em SVG, porque emojis dependem das fontes de cada computador
+const ICON_DIR = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M1.5 3.5h4.2l1.3 1.5h7.5v8h-13z" fill="#e8b84a" stroke="#b8862a" stroke-width="1"/></svg>';
+const ICON_FILE = '<svg viewBox="0 0 16 16" width="14" height="14"><path d="M3.5 1.5h6l3 3v10h-9z" fill="#fff" stroke="#8a94a6" stroke-width="1"/><text x="8" y="12" font-size="5.5" text-anchor="middle" fill="#c2410c" font-family="sans-serif" font-weight="700">J</text></svg>';
+
+// Árvore de pastas montada a partir dos caminhos dos arquivos
+function renderTree() {
+  const root = { dirs: {}, files: [] };
+  for (const path of Object.keys(FILES)) {
+    const parts = path.split("/");
+    let node = root;
+    for (const dir of parts.slice(0, -1)) node = node.dirs[dir] ??= { dirs: {}, files: [] };
+    node.files.push(path);
+  }
+  const rows = [];
+  const walk = (node, prefix, depth) => {
+    for (const dir of Object.keys(node.dirs).sort()) {
+      const path = prefix + dir + "/", closed = collapsed.has(path);
+      rows.push(`<div class="row dir" data-dir="${esc(path)}" style="padding-left:${8 + depth * 14}px"><span class="twisty">${closed ? "▸" : "▾"}</span><span class="icon">${ICON_DIR}</span><span class="name">${esc(dir)}</span><button class="act add" data-add="${esc(path)}" title="Criar arquivo em ${esc(path)}">+</button></div>`);
+      if (!closed) walk(node.dirs[dir], path, depth + 1);
+    }
+    for (const path of node.files.sort()) {
+      const cls = (path === current ? " on" : "") + (OPEN.includes(path) ? " open" : "");
+      const del = path in EX.files ? "" : `<button class="act del" data-del="${esc(path)}" title="Apagar arquivo">×</button>`;
+      rows.push(`<div class="row file${cls}" data-file="${esc(path)}" style="padding-left:${8 + depth * 14}px"><span class="twisty"></span><span class="icon">${ICON_FILE}</span><span class="name">${esc(path.split("/").pop())}</span>${del}</div>`);
+    }
+  };
+  walk(root, "", 0);
+  $("tree").innerHTML = rows.join("");
+}
+$("tree").addEventListener("click", e => {
+  const add = e.target.closest("[data-add]"), del = e.target.closest("[data-del]");
+  if (add) return newFile(add.dataset.add);
+  if (del) return removeFile(del.dataset.del);
+  const dir = e.target.closest("[data-dir]"), file = e.target.closest("[data-file]");
+  if (dir) { collapsed.has(dir.dataset.dir) ? collapsed.delete(dir.dataset.dir) : collapsed.add(dir.dataset.dir); renderTree(); }
+  if (file) switchTo(file.dataset.file);
+});
+
 function switchTo(name) {
-  FILES[current] = editor.getValue();
+  syncCurrent();
+  if (!OPEN.includes(name)) OPEN.push(name);
   current = name;
   editor.setValue(FILES[name]);
   editor.clearHistory();
   applyFolds();
-  editor.focus();
   renderTabs();
+  editor.refresh();
+  editor.focus();
+  persistOpen();
+}
+function closeTab(name) {
+  syncCurrent();
+  const i = OPEN.indexOf(name);
+  OPEN.splice(i, 1);
+  if (current === name) {
+    current = OPEN[Math.min(i, OPEN.length - 1)] || null;
+    if (current) { editor.setValue(FILES[current]); editor.clearHistory(); applyFolds(); }
+  }
+  renderTabs();
+  persistOpen();
 }
 
 let timer;
@@ -179,39 +239,41 @@ function save() {
   }, 400);
 }
 editor.on("change", (cm, change) => {
-  if (change.origin === "setValue") return;
+  if (change.origin === "setValue" || !current) return;
   FILES[current] = editor.getValue();
   save();
 });
 
-$("add").onclick = () => {
-  const hint = current.includes("/") ? current.slice(0, current.lastIndexOf("/") + 1) + "Nova.java" : "Nova.java";
+function newFile(folder) {
+  const hint = (folder ?? (current && current.includes("/") ? current.slice(0, current.lastIndexOf("/") + 1) : "")) + "Nova.java";
   const name = prompt("Caminho do arquivo, com as pastas do pacote", hint);
   if (!name) return;
-  if (!/^([A-Za-z_]\w*\/)*[A-Za-z_]\w*\.java$/.test(name) || name.startsWith("juiz/")) return alert("Use algo como Payroll.java ou kanban/modelo/Bug.java");
+  if (!/^([A-Za-z_]\w*\/)*[A-Za-z_]\w*\.java$/.test(name) || name.startsWith("juiz/")) return alert("Use algo como kanban/modelo/Bug.java");
   if (name in FILES) return switchTo(name);
   const parts = name.split("/"), cls = parts.pop().slice(0, -5);
+  syncCurrent();
   FILES[name] = (parts.length ? `package ${parts.join(".")};\n\n` : "") + `public class ${cls} {\n}\n`;
   switchTo(name);
   save();
-};
+}
+$("add").onclick = () => newFile(null);
 function removeFile(name) {
   if (!confirm(`Apagar ${name}?`)) return;
+  if (OPEN.includes(name)) closeTab(name);
   delete FILES[name];
-  if (current === name) { current = Object.keys(FILES)[0]; editor.setValue(FILES[current]); applyFolds(); }
   renderTabs();
   save();
 }
 $("reset").onclick = () => {
   if (!confirm("Apagar sua resposta e voltar aos arquivos-base?")) return;
   FILES = structuredClone(EX.files);
-  current = Object.keys(FILES)[0];
-  editor.setValue(FILES[current]);
-  applyFolds();
-  renderTabs();
+  OPEN = Object.keys(FILES);
+  current = null;
+  switchTo(OPEN[0]);
   save();
 };
 $("download").onclick = () => {
+  if (!current) return;
   FILES[current] = editor.getValue();
   const blob = new Blob([FILES[current]], { type: "text/x-java" });
   const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: current.split("/").pop() });
@@ -245,7 +307,7 @@ const compileError = res => `<span class="fail">Erro de compilação</span>\n\n$
 
 async function withButtons(fn) {
   if (!EX) return;
-  FILES[current] = editor.getValue();
+  syncCurrent();
   document.querySelectorAll(".actions button.go").forEach(b => b.disabled = true);
   out.textContent = javaReady ? "Compilando..." : "Esperando o Java carregar (só demora na primeira vez)...";
   try { await boot; await fn(); } catch (e) { out.textContent = "Erro inesperado: " + (e && e.message || e); }
@@ -309,7 +371,7 @@ zoom.onclick = () => zoom.style.display = "none";
 function setupBoard() {
   const board = initBoard({
     root: $("board"), exerciseId: EX.id, visualFiles: EX.visual,
-    getFiles: () => { FILES[current] = editor.getValue(); return { ...FILES }; },
+    getFiles: () => { syncCurrent(); return { ...FILES }; },
     compile, serial, boot, compileErrorHtml: res => compileError(res),
   });
   $("view-tabs").hidden = false;
@@ -333,19 +395,23 @@ async function init() {
   const index = await fetch("data/index.json", { cache: "no-cache" }).then(r => r.json());
   const wanted = new URLSearchParams(location.search).get("ex");
   const id = index.some(e => e.id === wanted) ? wanted : index[0].id;
+  // Com um exercício só, a barra de exercícios some
+  $("tabs").hidden = index.length < 2;
   $("tabs").innerHTML = index.map(e => `<a href="?ex=${e.id}" class="${e.id === id ? "on" : ""}">${esc(e.label)}</a>`).join("");
   EX = await fetch(`data/${id}/exercise.json?v=${index.find(e => e.id === id).v}`).then(r => r.json());
-  document.title = EX.label + " · Juiz POO";
+  document.title = index.length < 2 ? EX.label : EX.label + " · Juiz POO";
   $("statement").innerHTML = EX.statement;
   $("statement").querySelectorAll("img").forEach(img => img.onclick = () => { zoom.querySelector("img").src = img.src; zoom.style.display = "flex"; });
   $("submit").textContent = EX.tests.length ? `Enviar (${EX.tests.length} testes)` : Object.keys(EX.checker).length ? "Enviar (verificar)" : "Enviar";
   input.value = EX.input;
   const mine = store.get("poo-juiz:" + EX.id);
   FILES = mine && Object.keys(mine).length ? mine : structuredClone(EX.files);
-  current = Object.keys(FILES)[0];
-  editor.setValue(FILES[current]);
-  editor.clearHistory();
-  renderTabs();
+  // Reabre as abas da última visita, ou todos os arquivos na primeira
+  const open = store.get("poo-juiz-open:" + EX.id);
+  OPEN = (open?.open || Object.keys(FILES)).filter(n => n in FILES);
+  current = null;
+  const first = open?.current in FILES ? open.current : OPEN[0];
+  if (first) switchTo(first); else renderTabs();
   saved.textContent = mine ? "salvo neste navegador" : "";
   if (Object.keys(EX.visual || {}).length) setupBoard();
   // Os botões só funcionam depois que o exercício carregou
