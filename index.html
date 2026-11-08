@@ -134,6 +134,11 @@
   .checks li.fail { border-color: #f0b7b2; background: #fdf3f2; }
   .checks li.fail .mark { color: var(--bad); }
   .checks li .detail { display: block; font-size: 12px; color: var(--bad); margin-top: 2px; }
+  .checks .ck-register { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin-bottom: 14px; border: 1px solid var(--accent); border-radius: 8px; background: var(--panel); font-size: 13px; }
+  .checks .ck-register .row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .checks .ck-register input { flex: 1; min-width: 160px; padding: 6px 8px; font: inherit; }
+  .checks .ck-register .ck-msg { color: var(--muted); }
+  .checks .ck-register.done { display: block; }
   #zoom { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
   footer { margin-top: 32px; font-size: 12px; color: var(--muted); }
   #zoom img { max-width: 96vw; max-height: 96vh; background: #fff; }

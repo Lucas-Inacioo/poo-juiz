@@ -7,6 +7,13 @@ const TIMEOUT_MS = 5000;
 const SEP = "\u0000JUIZ\u0000";
 const RUNNER_CLASSES = ["JuizRunner.class", "JuizRunner$1.class", "JuizRunner$ExitCalled.class"];
 const GUARD_FILES = ["juiz/Guard.java", "juiz/JuizTimeout.java"];
+// Formulário do Google que guarda quem fechou todas as verificações, com o id de cada campo
+const REGISTER = {
+  "dojo-kanban": {
+    url: "https://docs.google.com/forms/d/e/1FAIpQLSfVDkGfDX4ERREpDe97w7bZA7aVX79gsqkgXrJ8qa__Vh9VGA/formResponse",
+    nome: "entry.1472682057", pontos: "entry.538922425", horario: "entry.1150223696", codigo: "entry.544977064",
+  },
+};
 
 const $ = id => document.getElementById(id);
 const out = $("out"), input = $("input"), saved = $("saved"), filesBar = $("files"), foldBtn = $("fold"), status = $("status");
@@ -390,11 +397,52 @@ function renderChecks() {
     const cls = !r ? "" : r.ok ? "ok" : "fail";
     html += `<li class="${cls}"><span class="mark">${!r ? "○" : r.ok ? "✓" : "✗"}</span><span>${esc(c.name)}${r && !r.ok && r.detail ? `<span class="detail">${esc(r.detail)}</span>` : ""}</span></li>`;
   }
-  $("checks").innerHTML = html + (open ? "</ol>" : "");
+  $("checks").innerHTML = registerHtml(last, ok, total) + html + (open ? "</ol>" : "");
+  const form = $("ck-register");
+  if (form) form.onsubmit = e => { e.preventDefault(); register(last, form); };
+}
+
+// Caixa para registrar a conclusão, que só aparece quando o último envio passou em tudo
+function registerHtml(last, ok, total) {
+  if (!REGISTER[EX.id] || !last?.code || ok !== total) return "";
+  if (last.registered) {
+    const when = new Date(last.registered.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    return `<div class="ck-register done">Conclusão registrada às ${when} em nome de <b>${esc(last.registered.nome)}</b>.</div>`;
+  }
+  return `<form id="ck-register" class="ck-register">
+    <b>Todas as verificações passaram!</b> Registre a conclusão para o monitor saber que vocês terminaram.
+    <span class="row"><input name="nome" placeholder="Nome de quem fez (ou da dupla)" required maxlength="120" autocomplete="name"><button type="submit" class="primary">Registrar conclusão</button></span>
+    <span class="ck-msg"></span>
+  </form>`;
+}
+
+async function register(last, form) {
+  const cfg = REGISTER[EX.id], nome = form.nome.value.trim(), msg = form.querySelector(".ck-msg");
+  if (!nome) return;
+  const total = EX.checks.filter(c => c.name).length;
+  const code = Object.entries(last.code).map(([path, text]) => `// ===== ${path}\n${text}`).join("\n\n");
+  const body = new URLSearchParams({
+    [cfg.nome]: nome,
+    [cfg.pontos]: `${total} de ${total}`,
+    [cfg.horario]: new Date().toLocaleString("pt-BR"),
+    [cfg.codigo]: code,
+  });
+  form.querySelector("button").disabled = true;
+  msg.textContent = "Enviando...";
+  try {
+    // O Google não libera CORS, então a resposta vem opaca e só dá para saber que a requisição saiu
+    await fetch(cfg.url, { method: "POST", mode: "no-cors", body });
+    store.set("poo-juiz-checks:" + EX.id, { ...last, registered: { nome, at: Date.now() } });
+    renderChecks();
+  } catch (e) {
+    form.querySelector("button").disabled = false;
+    msg.textContent = "Não foi possível enviar. Confira a internet e tente de novo.";
+  }
 }
 function saveChecks(checks) {
+  const allOk = checks && checks.length && checks.every(c => c.ok);
   store.set("poo-juiz-checks:" + EX.id, checks
-    ? { at: Date.now(), results: Object.fromEntries(checks.map(c => [c.name, { ok: c.ok, detail: c.detail }])) }
+    ? { at: Date.now(), results: Object.fromEntries(checks.map(c => [c.name, { ok: c.ok, detail: c.detail }])), ...(allOk ? { code: { ...FILES } } : {}) }
     : { at: Date.now(), compileError: true });
   if ($("checks") && EX.checks?.length) renderChecks();
 }
