@@ -329,11 +329,12 @@ function setupBoard() {
 }
 
 async function init() {
-  const index = await fetch("data/index.json").then(r => r.json());
+  // O índice nunca vem do cache, e ele traz a versão de cada exercício para o endereço dos dados
+  const index = await fetch("data/index.json", { cache: "no-cache" }).then(r => r.json());
   const wanted = new URLSearchParams(location.search).get("ex");
   const id = index.some(e => e.id === wanted) ? wanted : index[0].id;
   $("tabs").innerHTML = index.map(e => `<a href="?ex=${e.id}" class="${e.id === id ? "on" : ""}">${esc(e.label)}</a>`).join("");
-  EX = await fetch(`data/${id}/exercise.json`).then(r => r.json());
+  EX = await fetch(`data/${id}/exercise.json?v=${index.find(e => e.id === id).v}`).then(r => r.json());
   document.title = EX.label + " · Juiz POO";
   $("statement").innerHTML = EX.statement;
   $("statement").querySelectorAll("img").forEach(img => img.onclick = () => { zoom.querySelector("img").src = img.src; zoom.style.display = "flex"; });

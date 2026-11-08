@@ -1,4 +1,5 @@
 """Gera data/ a partir das pastas de exercícios do editor local (~/poo-editor/exercises por padrão)."""
+import hashlib
 import json
 import re
 import shutil
@@ -41,7 +42,12 @@ def main():
         for asset in folder.iterdir():
             if asset.suffix in ASSETS:
                 shutil.copy(asset, OUT / ex / asset.name)
-        statement = (folder / "statement.html").read_text().replace("asset:", f"data/{ex}/")
+        statement = (folder / "statement.html").read_text()
+        # Cada imagem leva o hash do conteúdo no endereço, para o navegador não mostrar uma versão antiga do cache
+        for asset in folder.iterdir():
+            if asset.suffix in ASSETS:
+                digest = hashlib.md5(asset.read_bytes()).hexdigest()[:8]
+                statement = statement.replace(f"asset:{asset.name}", f"data/{ex}/{asset.name}?v={digest}")
         example = folder / "example.in"
         tests = tests_of(folder)
         checker = java_files(folder / "checker")
@@ -55,8 +61,9 @@ def main():
             "checker": checker,
             "visual": java_files(folder / "visual"),
         }
-        (OUT / ex / "exercise.json").write_text(json.dumps(data, ensure_ascii=False))
-        index.append({"id": ex, "label": label(ex)})
+        text = json.dumps(data, ensure_ascii=False)
+        (OUT / ex / "exercise.json").write_text(text)
+        index.append({"id": ex, "label": label(ex), "v": hashlib.md5(text.encode()).hexdigest()[:8]})
         kind = f"{len(tests)} testes" if tests else f"verificador com {len(re.findall(r'teste\(\"', ''.join(checker.values())))} verificações"
         print(f"{ex}: {len(data['files'])} arquivos, {kind}")
     (OUT / "index.json").write_text(json.dumps(index, ensure_ascii=False))
