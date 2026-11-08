@@ -121,6 +121,19 @@
   .kb-moves button { padding: 0 8px; font-size: 12px; }
   .kb-empty { grid-column: 1 / -1; color: var(--muted); padding: 24px; text-align: center; border: 1px dashed var(--line); border-radius: 8px; }
   .kb-compile { grid-column: 1 / -1; white-space: pre-wrap; }
+  .checks { font-size: 14px; }
+  .checks .ck-summary { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; color: var(--muted); font-size: 13px; }
+  .checks .ck-summary b { color: var(--text); font-size: 15px; }
+  .checks .ck-bar { flex: 1; min-width: 120px; height: 8px; background: var(--code); border-radius: 4px; overflow: hidden; }
+  .checks .ck-bar span { display: block; height: 100%; background: var(--accent); }
+  .checks h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 16px 0 6px; }
+  .checks ol { list-style: none; margin: 0; padding: 0; }
+  .checks li { display: flex; gap: 10px; padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; margin-bottom: 6px; background: var(--panel); }
+  .checks li .mark { width: 18px; flex-shrink: 0; text-align: center; font-weight: 700; color: var(--muted); }
+  .checks li.ok .mark { color: var(--accent); }
+  .checks li.fail { border-color: #f0b7b2; background: #fdf3f2; }
+  .checks li.fail .mark { color: var(--bad); }
+  .checks li .detail { display: block; font-size: 12px; color: var(--bad); margin-top: 2px; }
   #zoom { position: fixed; inset: 0; background: rgba(0,0,0,.75); display: none; align-items: center; justify-content: center; z-index: 10; cursor: zoom-out; }
   footer { margin-top: 32px; font-size: 12px; color: var(--muted); }
   #zoom img { max-width: 96vw; max-height: 96vh; background: #fff; }
@@ -134,9 +147,10 @@
 <body>
 <aside>
   <nav class="tabs" id="tabs"></nav>
-  <nav id="view-tabs" class="view-tabs" hidden><button data-view="statement">Diagrama</button><button data-view="board">Quadro</button></nav>
+  <nav id="view-tabs" class="view-tabs" hidden><button data-view="statement">Diagrama</button><button data-view="board">Quadro</button><button data-view="checks">Verificações</button></nav>
   <div id="statement">Carregando...</div>
   <div id="board" class="board" hidden></div>
+  <div id="checks" class="checks" hidden></div>
   <footer>Java no navegador com <a href="https://cheerpj.com">CheerpJ</a>. Código do juiz em <a href="https://github.com/Lucas-Inacioo/poo-juiz">github.com/Lucas-Inacioo/poo-juiz</a>.</footer>
 </aside>
 

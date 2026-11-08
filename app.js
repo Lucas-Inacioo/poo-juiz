@@ -345,6 +345,7 @@ async function submitChecker() {
   const checkerMain = Object.keys(EX.checker)[0].replace(/\.java$/, "").replace(/\//g, ".");
   const res = await compile({ ...FILES, ...EX.checker });
   if (!res.ok) {
+    saveChecks(null);
     const blamesChecker = Object.keys(EX.checker).some(f => res.text.includes(f + ":"));
     out.innerHTML = compileError(res) + (blamesChecker
       ? '\n\n<span class="fail">Os erros que apontam para o verificador querem dizer que alguma classe ou método do diagrama ainda não existe, ou tem outro nome, outro tipo ou outra visibilidade.</span>' : "");
@@ -356,6 +357,7 @@ async function submitChecker() {
     const [kind, name, detail] = l.split("|");
     return { ok: kind === "OK", name, detail };
   });
+  saveChecks(checks);
   const ok = checks.filter(c => c.ok).length, firstFail = checks.findIndex(c => !c.ok);
   const extra = r.status === "timeout" ? "Tempo limite excedido (5 s). Algum método entrou em laço infinito." : r.stderr;
   out.innerHTML = summary(ok, checks.length, "verificações") + "\n\n" + checks.map((c, i) => checkBlock(c, i === firstFail)).join("")
@@ -370,18 +372,49 @@ document.addEventListener("keydown", e => {
 const zoom = $("zoom");
 zoom.onclick = () => zoom.style.display = "none";
 
-// Abas Enunciado e Quadro na barra lateral, só nos exercícios com quadro visual
-function setupBoard() {
-  const board = initBoard({
+// Aba Verificações: as regras do verificador, com o resultado do último envio
+function renderChecks() {
+  const last = store.get("poo-juiz-checks:" + EX.id);
+  const results = last?.results || {};
+  const total = EX.checks.filter(c => c.name).length;
+  const ok = EX.checks.filter(c => c.name && results[c.name]?.ok).length;
+  const when = last ? new Date(last.at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : null;
+  const summary = !last ? "Ainda não enviado. Use o botão Enviar para conferir o seu código contra estas regras."
+    : last.compileError ? `O envio das ${when} não compilou. Veja o erro no Resultado, à direita.`
+    : `<b>${ok} de ${total}</b> passaram no envio das ${when}`;
+  let html = `<div class="ck-summary"><span>${summary}</span>${last && !last.compileError ? `<span class="ck-bar"><span style="width:${100 * ok / total}%"></span></span>` : ""}</div>`;
+  let open = false;
+  for (const c of EX.checks) {
+    if (c.section) { html += `${open ? "</ol>" : ""}<h3>${esc(c.section)}</h3><ol>`; open = true; continue; }
+    const r = last && !last.compileError ? results[c.name] : null;
+    const cls = !r ? "" : r.ok ? "ok" : "fail";
+    html += `<li class="${cls}"><span class="mark">${!r ? "○" : r.ok ? "✓" : "✗"}</span><span>${esc(c.name)}${r && !r.ok && r.detail ? `<span class="detail">${esc(r.detail)}</span>` : ""}</span></li>`;
+  }
+  $("checks").innerHTML = html + (open ? "</ol>" : "");
+}
+function saveChecks(checks) {
+  store.set("poo-juiz-checks:" + EX.id, checks
+    ? { at: Date.now(), results: Object.fromEntries(checks.map(c => [c.name, { ok: c.ok, detail: c.detail }])) }
+    : { at: Date.now(), compileError: true });
+  if ($("checks") && EX.checks?.length) renderChecks();
+}
+
+// Abas da barra lateral: Diagrama sempre, Quadro e Verificações quando o exercício tem
+function setupViews() {
+  const hasBoard = Object.keys(EX.visual || {}).length > 0, hasChecks = (EX.checks || []).length > 0;
+  if (!hasBoard && !hasChecks) return;
+  const board = hasBoard ? initBoard({
     root: $("board"), exerciseId: EX.id, visualFiles: EX.visual,
     getFiles: () => { syncCurrent(); return { ...FILES }; },
     compile, serial, boot, compileErrorHtml: res => compileError(res),
-  });
+  }) : null;
+  if (hasChecks) renderChecks();
   $("view-tabs").hidden = false;
+  document.querySelector('#view-tabs [data-view="board"]').hidden = !hasBoard;
+  document.querySelector('#view-tabs [data-view="checks"]').hidden = !hasChecks;
   const show = view => {
     document.body.classList.toggle("board-mode", view === "board");
-    $("statement").hidden = view === "board";
-    $("board").hidden = view !== "board";
+    for (const v of ["statement", "board", "checks"]) $(v).hidden = v !== view;
     document.querySelectorAll("#view-tabs button").forEach(b => b.classList.toggle("on", b.dataset.view === view));
     try { localStorage.setItem("poo-juiz-view:" + EX.id, view); } catch { }
     if (view === "board") board.shown();
@@ -390,7 +423,7 @@ function setupBoard() {
   document.querySelectorAll("#view-tabs button").forEach(b => b.onclick = () => show(b.dataset.view));
   let last = null;
   try { last = localStorage.getItem("poo-juiz-view:" + EX.id); } catch { }
-  show(last === "board" ? "board" : "statement");
+  show((last === "board" && hasBoard) || (last === "checks" && hasChecks) ? last : "statement");
 }
 
 async function init() {
@@ -416,7 +449,7 @@ async function init() {
   const first = open?.current in FILES ? open.current : OPEN[0];
   if (first) switchTo(first); else renderTabs();
   saved.textContent = mine ? "salvo neste navegador" : "";
-  if (Object.keys(EX.visual || {}).length) setupBoard();
+  setupViews();
   // Os botões só funcionam depois que o exercício carregou
   document.querySelectorAll(".actions button.go").forEach(b => b.disabled = false);
 }

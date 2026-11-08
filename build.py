@@ -62,6 +62,9 @@ def main():
             "tests": tests,
             "checker": checker,
             "visual": java_files(folder / "visual"),
+            # Lista das verificações na ordem do verificador, com as seções, para a aba Verificações
+            "checks": [{"section": m[1]} if m[0] == "secao" else {"name": m[1]}
+                       for m in re.findall(r'\b(secao|teste)\("([^"]*)"', "".join(checker.values()))],
         }
         text = json.dumps(data, ensure_ascii=False)
         (OUT / ex / "exercise.json").write_text(text)
