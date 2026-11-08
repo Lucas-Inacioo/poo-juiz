@@ -243,6 +243,7 @@ function summary(ok, total, what) {
 const compileError = res => `<span class="fail">Erro de compilação</span>\n\n${esc(res.text)}`;
 
 async function withButtons(fn) {
+  if (!EX) return;
   FILES[current] = editor.getValue();
   document.querySelectorAll(".actions button.go").forEach(b => b.disabled = true);
   out.textContent = javaReady ? "Compilando..." : "Esperando o Java carregar (só demora na primeira vez)...";
@@ -321,5 +322,7 @@ async function init() {
   editor.clearHistory();
   renderTabs();
   saved.textContent = mine ? "salvo neste navegador" : "";
+  // Os botões só funcionam depois que o exercício carregou
+  document.querySelectorAll(".actions button.go").forEach(b => b.disabled = false);
 }
-init();
+init().catch(e => { out.textContent = "Não foi possível carregar o exercício. " + e; });
