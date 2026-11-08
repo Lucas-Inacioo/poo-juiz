@@ -1,6 +1,7 @@
 // Interface do juiz: enunciado à esquerda, editor à direita, javac e testes rodando no navegador com o CheerpJ
 import { instrument } from "./instrument.js";
 import { initBoard } from "./board.js";
+import { makeZip } from "./zip.js";
 
 const TIMEOUT_MS = 5000;
 const SEP = "\u0000JUIZ\u0000";
@@ -272,13 +273,15 @@ $("reset").onclick = () => {
   switchTo(OPEN[0]);
   save();
 };
+// Baixa todos os arquivos do projeto num .zip, só lendo o que está salvo, sem alterar nada
 $("download").onclick = () => {
-  if (!current) return;
-  FILES[current] = editor.getValue();
-  const blob = new Blob([FILES[current]], { type: "text/x-java" });
-  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: current.split("/").pop() });
+  syncCurrent();
+  const blob = makeZip(FILES);
+  const a = Object.assign(document.createElement("a"), { href: URL.createObjectURL(blob), download: `${EX.id}.zip` });
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 };
 
 // Mostra o texto com um aviso visível quando falta a quebra de linha final, que conta na comparação
